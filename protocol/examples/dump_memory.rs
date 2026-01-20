@@ -8,8 +8,17 @@ use std::{
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
-    let mut port = freemdu::serial::open("/dev/ttyACM0")?;
-    let mut dev = freemdu::device::connect(&mut port).await?;
+    let mut port = freemdu::serial::open("/dev/cu.usbmodem101")?;
+    println!("Connecting to device");
+    let mut intf = freemdu::Interface::new(port);
+
+    println!("Software ID: {}", intf.query_software_id().await?);
+
+    intf.unlock_read_access(0x2e69).await?;
+    intf.unlock_full_access(0x3e3b).await?;
+
+    println!("Connection Successful");
+
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
@@ -21,7 +30,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for addr in (start..=0xffff).step_by(0x80) {
         println!("Reading memory address {addr:04x}");
 
-        let data: [u8; 0x80] = dev.interface().read_memory(addr).await?;
+        let data: [u8; 0x80] = intf.read_memory(addr).await?;
 
         file.write_all(&data)?;
     }
